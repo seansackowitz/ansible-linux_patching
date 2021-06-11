@@ -1,0 +1,34 @@
+---
+- hosts: all,!failed_hosts_{{ tower_workflow_job_id }}
+  gather_facts: yes
+  max_fail_percentage: 100
+  tasks:
+    - block:
+        - name: Check if there are available updates
+          shell: sudo yum check-update
+          when: ansible_os_family == "RedHat"
+          register: yum_check
+          failed_when: yum_check.rc != 100 and yum_check.rc != 0
+      rescue:
+        - name: Add host to failed inventory group
+          awx.awx.tower_group:
+            inventory: "{{ tower_inventory_name }}"
+            name: "failed_hosts_{{ tower_workflow_job_id }}"
+            hosts:
+              - "{{ inventory_hostname }}"
+            tower_username: "{{ tower_username }}"
+            tower_password: "{{ tower_password }}"
+            tower_host: "{{ tower_host }}"
+            validate_certs: no
+        - name: Add host to failed inventory group
+          awx.awx.tower_group:
+            inventory: "{{ tower_inventory_name }}"
+            name: "{{ group_name }}_{{ tower_workflow_job_id }}"
+            hosts:
+              - "{{ inventory_hostname }}"
+            tower_username: "{{ tower_username }}"
+            tower_password: "{{ tower_password }}"
+            tower_host: "{{ tower_host }}"
+            validate_certs: no
+        - fail:
+            msg: "Failed while checking updates"
